@@ -6,20 +6,64 @@ All notable changes to CSV Visual Editor will be documented in this file.
 
 ### Added
 
+- Read-only visual CSV table backed by immutable parser output.
+- Host-independent `CsvTableBuilder` result states for empty input, manual delimiter requirement, and ready tables.
+- Visible delimiter selector for automatic, comma, semicolon, and tab modes.
+- Visible header selector for First row is header and No header row modes.
+- Host-independent table projection with deterministic fallback, duplicate, empty, whitespace, and multiline header handling.
+- Source logical-record numbers in DataGridView row headers.
+- Manual delimiter recovery when automatic detection is weak, ambiguous, or unavailable.
+- Explicit 10,000-row, 512-column, and 250,000-cell visual limits with non-silent behavior.
+- xUnit table-builder and projection tests for delimiter gating, header modes, unique names, inconsistent widths, limits, and empty input.
+- Native AOT runtime smoke library that executes CSV table building and DataGridView population for both automatic and manual-comma modes.
+- DPI-aware initial dock-width policy with tests for default, user-sized, small-host, and high-DPI layouts.
+- Content-aware, bounded column fill-weight calculation with deterministic row sampling and multiline handling.
+- Developer and contact information in the About dialog.
+- `0.4.0-alpha` Native AOT test-package naming.
+
+### Changed
+
+- The panel now renders parsed CSV values instead of snapshot metadata when a trustworthy or explicitly selected dialect is available.
+- Automatic detection is accepted only at Medium or High confidence.
+- Inconsistent-width records are padded only in the rectangular view and remain unchanged in parser output.
+- The displayed row count is constrained by both row and aggregate-cell budgets.
+- A newly created right-side panel that is still at the Notepad++ default width is expanded once to a usable width after first display.
+- Existing user-sized wider dock layouts are preserved, and small Notepad++ windows retain a minimum editor area.
+- Visual CSV columns now use `DataGridView` Fill sizing, weighted by sampled header and cell lengths, so short tables fill the panel without unused grey workspace.
+- Every visual CSV column retains a 90-pixel minimum width; wide or high-column-count tables therefore use horizontal scrolling instead of collapsing into unreadable cells.
+- Column fill sizing automatically follows subsequent dock-panel resizing while preserving manual column resize support.
+- CI diagnostics now cover strict build, bootstrap smoke, xUnit core tests, Native AOT table runtime execution, and plugin publishing separately.
+- About text describes the 0.4 read-only table boundary.
+
+### Fixed
+
+- Preserved the public parameterless `DataGridViewRowHeaderCell` constructor required by WinForms reflective row-header creation under Native AOT. Without this root, setting source record numbers failed at runtime with `MissingMethodException` even though compilation and publishing succeeded.
+- Corrected the unusably narrow first-open dock layout caused by the Notepad++ host registering the docking container before the derived WinForms `ClientSize` is applied.
+- Removed unused right-side grid workspace for tables whose natural column widths are narrower than the dock panel.
+
+### Validated
+
+- The Native AOT runtime smoke test creates a three-column, one-row read-only DataGridView from synthetic CSV in both automatic and manual-comma modes, including source row-header numbering.
+- The Native AOT runtime smoke test verifies Fill sizing, the readable minimum width, and larger relative width for longer content.
+- Initial dock-width calculations are validated for the Notepad++ 200-pixel default, preserved user layouts, constrained small windows, DPI scaling, and invalid inputs.
+- Column weights are validated for long versus short values, empty fields, multiline values, maximum caps, deterministic sampling, and invalid sample limits.
+
+## [0.3.0-alpha] — 2026-07-21
+
+### Added
+
 - Host-independent CSV dialect model for comma, semicolon, and tab delimiters.
 - Explainable delimiter detection with candidate scores, confidence levels, ambiguity diagnostics, and decimal-comma caution.
 - Character-state CSV parser that processes logical records without splitting quoted multiline fields.
-- Support for empty and trailing fields, quoted delimiters, doubled quotes, embedded CRLF/LF, blank records, and leading U+FEFF handling.
+- Support for empty and trailing fields, quoted delimiters, doubled quotes, embedded CRLF/LF, blank records, Unicode, and leading U+FEFF handling.
 - Immutable CSV record/cell models with raw decoded-text source spans.
 - Structured diagnostics for malformed quotes and inconsistent field counts.
 - xUnit.net v3 parser test project pinned to `xunit.v3.mtp-v2` 3.2.2.
 - Public parser and test-strategy documentation.
-- `0.3.0-alpha` Native AOT test-package naming.
 
-### Changed
+### Validated
 
-- CI now runs both the dependency-free bootstrap smoke checks and the xUnit parser matrix.
-- About text describes the 0.3 parser boundary.
+- Strict core build, 38/38 parser and detector tests, Native AOT publish, and clean x64 package creation.
 
 ## [0.2.0-alpha] — 2026-07-21
 
@@ -32,7 +76,6 @@ All notable changes to CSV Visual Editor will be documented in this file.
 - Explicit 64 MiB snapshot safety limit with a visible non-destructive error state.
 - Docked metadata view and refresh behavior for the active buffer.
 - Core smoke checks for snapshot creation, hashing, normalization, and invalid input.
-- `0.2.0-alpha` Native AOT test package.
 
 ### Changed
 

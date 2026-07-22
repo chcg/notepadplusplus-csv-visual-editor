@@ -8,7 +8,12 @@ partial class Main : IDotNetPlugin
 {
     private const string PluginDisplayName = "CSV Visual Editor";
     private const string PluginAssemblyName = "CsvVisualEditor";
+    private const string DeveloperName = "Zolnai Zsolt";
+    private const string DeveloperEmail = "zzsolt@gmail.com";
     private const int DialogCommandIndex = 0;
+    private const int MaximumDisplayedRows = 10_000;
+    private const int MaximumDisplayedColumns = 512;
+    private const int MaximumDisplayedCells = 250_000;
 
     private static readonly IDotNetPlugin Instance;
     private readonly IActiveDocumentReader _activeDocumentReader =
@@ -64,12 +69,15 @@ partial class Main : IDotNetPlugin
     {
         if (_gridForm is null)
         {
-            _gridForm = new CsvGridForm(
+            var gridForm = new CsvGridForm(
                 DialogCommandIndex,
                 $"{PluginAssemblyName}.dll",
                 SystemIcons.Application);
-            _gridForm.RefreshRequested += OnRefreshRequested;
-            LoadActiveDocumentSnapshot();
+            _gridForm = gridForm;
+            gridForm.RefreshRequested += OnRefreshRequested;
+            LoadActiveDocumentTable();
+            gridForm.BeginInvoke(
+                (Action)(() => NotepadDockWidthAdjuster.TryExpandInitialRightDock(gridForm)));
             return;
         }
 
@@ -80,7 +88,7 @@ partial class Main : IDotNetPlugin
         else
         {
             _gridForm.ShowDockingForm();
-            LoadActiveDocumentSnapshot();
+            LoadActiveDocumentTable();
         }
     }
 
@@ -97,45 +105,102 @@ partial class Main : IDotNetPlugin
             _gridForm.ShowDockingForm();
         }
 
-        LoadActiveDocumentSnapshot();
+        LoadActiveDocumentTable();
     }
 
     private void OnRefreshRequested(object? sender, EventArgs e)
     {
-        LoadActiveDocumentSnapshot();
+        LoadActiveDocumentTable();
     }
 
-    private void LoadActiveDocumentSnapshot()
+    private void LoadActiveDocumentTable()
     {
         if (_gridForm is null)
         {
             return;
         }
 
+        ActiveDocumentSnapshot snapshot;
         try
         {
-            var snapshot = _activeDocumentReader.ReadActiveDocument();
-            _gridForm.ShowDocumentSnapshot(snapshot);
+            snapshot = _activeDocumentReader.ReadActiveDocument();
         }
         catch (InvalidOperationException exception)
         {
             _gridForm.ShowSnapshotError(exception.Message);
+            return;
         }
         catch (Exception)
         {
             _gridForm.ShowSnapshotError(
                 "The active Notepad++ document could not be read. " +
                 "No editor content was changed.");
+            return;
+        }
+
+        try
+        {
+            var buildResult = CsvTableBuilder.Build(
+                snapshot.Text,
+                new CsvTableBuildOptions
+                {
+                    DelimiterOverride = _gridForm.SelectedDelimiterOverride,
+                    HeaderMode = _gridForm.SelectedHeaderMode,
+                    MaximumRows = MaximumDisplayedRows,
+                    MaximumColumns = MaximumDisplayedColumns,
+                    MaximumCells = MaximumDisplayedCells
+                });
+
+            switch (buildResult.Status)
+            {
+                case CsvTableBuildStatus.Empty:
+                    _gridForm.ShowEmptyDocument(snapshot);
+                    return;
+
+                case CsvTableBuildStatus.DelimiterSelectionRequired
+                    when buildResult.DetectionResult is not null:
+                    _gridForm.ShowDelimiterSelectionRequired(
+                        snapshot,
+                        buildResult.DetectionResult);
+                    return;
+
+                case CsvTableBuildStatus.Ready
+                    when buildResult.ParseResult is not null &&
+                         buildResult.Projection is not null:
+                    _gridForm.ShowVisualTable(
+                        snapshot,
+                        buildResult.ParseResult,
+                        buildResult.Projection,
+                        buildResult.DetectionResult,
+                        buildResult.DelimiterWasAutomatic);
+                    return;
+
+                default:
+                    throw new InvalidOperationException(
+                        "The table builder returned an incomplete result.");
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            _gridForm.ShowTableError(exception.Message);
+        }
+        catch (Exception)
+        {
+            _gridForm.ShowTableError(
+                "The editor buffer could not be converted into a visual table. " +
+                "Choose an explicit delimiter or refresh after correcting the document.");
         }
     }
 
     private static void ShowAboutDialog()
     {
         MessageBox.Show(
-            "CSV Visual Editor 0.3.0-alpha\n\n" +
-            "A graphical, spreadsheet-like CSV editor for Notepad++.\n" +
-            "This version includes host-independent CSV dialect detection and " +
-            "record-aware parsing. Grid population and editing are not enabled yet.",
+            "CSV Visual Editor 0.4.0-alpha\n\n" +
+            "A graphical, spreadsheet-like CSV viewer for Notepad++.\n" +
+            "This version displays parsed CSV rows in a read-only grid with explicit " +
+            "delimiter and header controls. Editing is not enabled yet.\n\n" +
+            $"Developer: {DeveloperName}\n" +
+            $"Contact: {DeveloperEmail}",
             $"About {PluginDisplayName}",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
