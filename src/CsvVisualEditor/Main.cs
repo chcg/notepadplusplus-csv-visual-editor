@@ -77,6 +77,7 @@ partial class Main : IDotNetPlugin
             _gridForm = gridForm;
             gridForm.RefreshRequested += OnRefreshRequested;
             gridForm.ApplyRequested += OnApplyRequested;
+            CsvGridRowHeaderBehavior.TryAttach(gridForm);
             LoadActiveDocumentTable();
             gridForm.BeginInvoke(
                 (Action)(() => NotepadDockWidthAdjuster.TryExpandInitialRightDock(gridForm)));
@@ -136,7 +137,8 @@ partial class Main : IDotNetPlugin
     {
         if (_gridForm is null ||
             !_gridForm.IsEditMode ||
-            _gridForm.EditSession is null)
+            _gridForm.EditSession is null ||
+            _gridForm.RowEditModel is null)
         {
             return;
         }
@@ -176,7 +178,7 @@ partial class Main : IDotNetPlugin
         try
         {
             result = CsvEditorApplyCoordinator.Execute(
-                _gridForm.EditSession,
+                _gridForm.RowEditModel,
                 currentSnapshot,
                 new NotepadEditorReplacementTarget());
         }
@@ -289,12 +291,12 @@ partial class Main : IDotNetPlugin
     private static void ShowAboutDialog()
     {
         MessageBox.Show(
-            "CSV Visual Editor 0.7.0-alpha\n\n" +
+            "CSV Visual Editor 0.8.0-alpha\n\n" +
             "A graphical, spreadsheet-like CSV editor for Notepad++.\n" +
-            "Edit mode uses deterministic CSV serialization, fresh-buffer conflict checks, " +
-            "and one Scintilla undo transaction. Apply currently supports UTF-8 editor " +
-            "buffers only and modifies only the active Notepad++ editor buffer; saving " +
-            "to disk remains a normal Notepad++ action.\n\n" +
+            "Edit mode supports deterministic cell editing plus Add Row and Delete Row. " +
+            "Fresh-buffer conflict checks and one Scintilla undo transaction protect Apply. " +
+            "Apply currently supports UTF-8 editor buffers only and modifies only the " +
+            "active Notepad++ editor buffer; saving to disk remains a normal Notepad++ action.\n\n" +
             $"Developer: {DeveloperName}\n" +
             $"Contact: {DeveloperEmail}",
             $"About {PluginDisplayName}",
