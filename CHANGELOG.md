@@ -4,6 +4,90 @@ All notable changes to CSV Visual Editor will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0-alpha] — 2026-07-29
+
+### Fixed
+
+- Removed logical-record/state text from the native `DataGridViewRowHeaderCell`, eliminating direct visual coupling between the current-row glyph and the active row number.
+- Replaced the rejected fixed 64/112-pixel row-header policy with a glyph-only native header plus a dedicated, content-measured `#` row-indicator column.
+- Prevented ordinary Edit mode from reserving permanent space for `new:n *` labels that do not exist.
+
+### Changed
+
+- Native row headers now use WinForms `AutoSizeToAllHeaders` for framework-owned glyph, DPI, theme, RTL, high-contrast, and editing-icon capacity.
+- Logical-record numbers and `n *` / `new:n *` state labels are centered in a frozen read-only column that is physically appended but visually first.
+- The `#` cell is an additional whole-row gesture target; native row-header and checkbox behavior continue to share the same stable-ID selection model.
+- Structural label tooltips explain modified and inserted pending state.
+- Unused row-error icon capacity is disabled; native current-row editing indication remains enabled.
+
+### Safety
+
+- Physical CSV data-column indexes remain unchanged; both presentation columns are added only after CSV columns.
+- The row-indicator and selector never enter the CSV model, serialization, conflict detection, or Apply path.
+- Existing checkbox/full-row/Ctrl/Shift/Delete/Revert stable-ID behavior remains authoritative.
+- Custom native row-header painting was intentionally avoided so WinForms retains theme, DPI, high-contrast, RTL, and accessibility ownership.
+
+### Validation status
+
+- Native AOT coverage now verifies glyph-only native headers, aligned indicator values, content-driven structural width, unchanged CSV indexes, selector placement, dark-mode refresh, reconstruction, and accepted selection/deletion behavior.
+- The owner accepted the final package in Notepad++ 8.9.7 x64 on 2026-07-29 and explicitly authorized closing milestone 0.9.
+
+
+### Added
+
+- Atomic `CsvRowEditModelBatchOperations.DeleteRows` API using stable `CsvEditRowId` targets.
+- Immutable `CsvBatchDeleteResult` with target, source-deletion, inserted-cancellation, affected, and remaining-row counts.
+- Duplicate-ID normalization and complete prevalidation before the first structural mutation.
+- Mixed source-row deletion and inserted-row cancellation in one deterministic operation.
+- Checkbox-style **Select** column shown only in Edit mode and appended after real CSV columns.
+- Shared plugin-owned stable complete-row selection state for selector boxes and row-header gestures.
+- Plain, Ctrl, Shift, and Ctrl+Shift row-header selection based on stable IDs and a stable anchor.
+- Two-way visual synchronization: selector boxes highlight complete rows, and row-header selection updates selector boxes.
+- Dynamic **Delete Row** / **Delete Rows (n)** command state.
+- Deterministic neighboring-row focus after batch deletion.
+- Nine batch-operation xUnit regressions covering atomicity, duplicates, ordering, mixed rows, BOM, mixed EOL, terminal newlines, inserted-only cleanup, and exact Revert All.
+- Native AOT synchronized selector/row-header, batch preview, Apply, conflict-zero-call, Revert, and selector-lifecycle execution.
+- Public multi-row deletion architecture and Notepad++ 0.9 host-validation matrix.
+- `0.9.0-alpha` assembly, About, workflow artifact, and package version.
+
+### Changed
+
+- The working explicit selector is now the visible state indicator for row-header selection rather than a separate interaction model.
+- Row-header Ctrl/Shift gestures update stable `CsvEditRowId` targets directly and do not derive deletion intent from `SelectedRows` or `SelectedCells`.
+- Clicking an ordinary CSV data cell clears complete-row selection and disables Delete.
+- Current-cell row deletion fallback was removed; Delete requires at least one explicitly selected complete row.
+- Selector marks retain only stable `CsvEditRowId` values and never enter the CSV cell model.
+- Delete captures the explicit stable-ID set before mutation and performs one core batch operation.
+- Selection enumeration order no longer affects structural output.
+- Button text and tooltip communicate one-row versus multi-row deletion targets.
+- Status messages distinguish source rows marked for deletion from inserted rows removed by cancellation.
+- Leaving Edit mode removes the selector column and clears complete-row selection.
+- Native AOT diagnostic artifacts include both publish and execution logs.
+
+### Safety
+
+- DataGridView rows, cells, indexes, and selection collections remain presentation state only.
+- Selector state is never serialized as CSV data.
+- Appending the selector preserves all existing CSV data-column indexes.
+- Ordinary cell focus cannot accidentally become a row-deletion target.
+- The complete unique stable-ID set is validated before any row mutation.
+- An unknown stable identity produces zero partial changes.
+- Built-in DataGridView row deletion remains disabled.
+- Selected inserted rows are cancelled; selected source rows remain restorable through Revert All.
+- NoChanges and document/code-page/content conflicts continue to call no editor method.
+- Batch Apply reuses the existing single Begin/Replace/Selection/End coordinator.
+- UTF-8-only Apply, one full-buffer replacement, normal Notepad++ Save ownership, and no direct disk writes remain unchanged.
+
+### Validated
+
+- 168/168 xUnit tests passed.
+- Strict core build and bootstrap smoke passed.
+- Native AOT explicit selector appearance, placement, visual full-row synchronization, atomic deletion, and exact Revert All passed.
+- Native AOT plain/Ctrl/Shift row-header selection, selector synchronization, ordinary-cell zero-target behavior, and selector removal passed.
+- Native AOT mixed batch deletion, deterministic preview, Apply ordering, and conflict zero-call behavior passed.
+- Full win-x64 Native AOT plugin publish and `0.9.0-alpha` package creation passed in final CI `30387337728` on public head `ee686b75e65800dd1e6e959e477d60fd1d2234d1`.
+- The owner accepted synchronized checkbox/native-header/`#` selection, batch deletion, Revert, and the final row-presentation package in Notepad++ 8.9.7 x64.
+
 ## [0.8.0-alpha] — 2026-07-23
 
 ### Added
@@ -25,16 +109,15 @@ All notable changes to CSV Visual Editor will be documented in this file.
 ### Changed
 
 - Source-row values remain owned by `CsvEditSession`; the structural model reads them live instead of duplicating mutable state.
-- Edit-mode grid rows now store stable `CsvEditRowId` values rather than visual row indexes.
-- Edit mode renders the structural source-order model and continues to lock filtering and sorting.
+- Edit-mode grid rows store stable `CsvEditRowId` values rather than visual row indexes.
+- Edit mode renders the structural source-order model and locks filtering and sorting.
 - Add Row inserts after the selected stable row identity, or appends when no row is selected.
 - Delete Row deletes only the selected stable data-row identity; deleting an inserted row cancels that insertion.
 - Revert All restores cell edits, source deletions, insertions, source order, and exact original preview text.
 - Cell-only and structural Apply entry points converge on one private Begin/Replace/Selection/End coordinator.
-- Dirty status and the status bar now expose combined cell, row, insertion, and deletion counts.
+- Dirty status and the status bar expose combined cell, row, insertion, and deletion counts.
 - Row headers use a readable 112-pixel width for complete `new:n *` labels.
 - Ordinary cell clicks remain cell selections while left row-header clicks select the complete stable row.
-- Row-header selection policy is reapplied after table reconstruction and is attached safely during the initial bootstrap state.
 
 ### Serialization
 
@@ -52,7 +135,7 @@ All notable changes to CSV Visual Editor will be documented in this file.
 - Structural model creation requires matching document identity, code page, baseline SHA-256, dialect, source-record sequence, header record, column set, and complete source-order projection.
 - Row-limited and malformed projections remain non-editable.
 - Deleted rows cannot be edited or used as insertion anchors.
-- Visual DataGridView indexes are never used as persistent source identities.
+- Visual DataGridView indexes are never persistent source identities.
 - Structural NoChanges and conflict plans expose no replacement text or replacement hash.
 - No editor target method is called for structural NoChanges or conflict states.
 - UTF-8-only Apply remains enforced before the Notepad++ replacement adapter is created.
@@ -67,7 +150,6 @@ All notable changes to CSV Visual Editor will be documented in this file.
 - Native AOT row-header discovery, preferred width, complete-row selection, and reconstruction reapplication passed.
 - Full win-x64 Native AOT plugin publish and `0.8.0-alpha` package creation passed.
 - Complete Notepad++ 8.9.7 x64 owner acceptance passed on 2026-07-23.
-- Accepted host coverage included cell editing, Add Row, Delete Row, inserted-row cancellation, Revert All, combined Apply, one-step undo/redo, Save ownership, stable source identity after sorting, header-only insertion, multiline/Unicode values, mixed line endings, terminal-newline preservation, inconsistent widths, conflict blocking, non-UTF-8 refusal, lifecycle, light/dark mode, readable `new:n *` markers, and spreadsheet-style row-header selection.
 
 ## [0.7.0-alpha] — 2026-07-22
 
@@ -95,13 +177,13 @@ All notable changes to CSV Visual Editor will be documented in this file.
 - Global Refresh Table refuses to discard an active Edit session.
 - A successful Apply rebuilds the table and session from the resulting editor buffer.
 - Selection-restoration failure is recorded as non-critical after a successful document replacement.
-- The first writable alpha permits Apply only for Scintilla code page 65001 (UTF-8); viewing remains available for other readable code pages.
+- Apply is permitted only for Scintilla code page 65001 (UTF-8); viewing remains available for other readable code pages.
 
 ### Safety
 
 - Apply reads a fresh active-document snapshot immediately before replacement.
 - No Scintilla replacement method is called for NoChanges or any conflict state.
-- Non-UTF-8 Apply is blocked before constructing the replacement adapter, preventing lossy code-page conversion.
+- Non-UTF-8 Apply is blocked before constructing the replacement adapter.
 - Ready Apply performs exactly one whole-document replacement inside one undo action.
 - `EndUndoAction` executes in `finally` after a successful Begin.
 - The plugin does not set or clear the Notepad++ save point.
@@ -115,98 +197,39 @@ All notable changes to CSV Visual Editor will be documented in this file.
 - Native AOT serializer, edit-session, Apply coordinator, conflict blocking, and diagnostics UI smoke passed.
 - Full win-x64 Native AOT plugin publish and installable package creation passed.
 - Complete Notepad++ 8.9.7 x64 owner acceptance passed on 2026-07-22.
-- Accepted host coverage included Edit/Revert, dirty indicators, UTF-8 Apply, one-step Ctrl+Z/Ctrl+Y, modified marker, normal Save ownership, structural and multiline CSV values, Unicode, inconsistent-width preservation, content and active-document conflict blocking, lifecycle behavior, no-change behavior, and non-UTF-8 Apply refusal.
 
 ## [0.6.0-alpha] — 2026-07-22
 
 ### Added
 
-- Host-independent `CsvSerializationPolicy` for delimiter, quote, record-separator, terminal-newline, and leading-BOM behavior.
-- Deterministic comma, semicolon, and tab CSV serialization.
-- Safe quoting for delimiters, quotes, CR/LF, and leading/trailing whitespace.
-- `CsvEditSession` with immutable active-document baseline.
-- Per-cell dirty tracking and changed-cell/record counts.
-- Cell and full-session reversion.
-- Minimal-difference edit previews that retain unchanged raw records and exact following separators.
-- Original field-count retention for inconsistent-width records.
-- Safe extension of display-padded records only when padded cells are edited.
-- `CsvEditApplyPlan` conflict states for document identity, code page, and editor-content changes.
-- Strict stale-parser verification by reparsing the active snapshot and comparing records, cells, spans, quoted states, and diagnostics.
-- Preview replacement SHA-256.
-- Public safe-editing architecture documentation.
-- Native AOT serializer, edit-session, reversion, Ready-plan, and content-conflict runtime coverage.
-
-### Safety
-
-- Parser-error and row-limited projections cannot start an edit session.
-- Stale parser output cannot be reused for different source text, even with matching length and compatible spans.
-- Unchanged records are never unnecessarily normalized.
-- Missing display-only fields are not silently written into source records.
-- Extra and trailing source fields are retained.
-- Conflict plans contain no replacement preview.
-- No editable grid, Scintilla write, or disk write was enabled in this foundation increment.
+- Host-independent deterministic CSV serialization and `CsvEditSession`.
+- Per-cell dirty tracking, reversion, minimal-difference previews, conflict plans, and Native AOT coverage.
 
 ### Validated
 
 - 112/112 xUnit tests passed.
-- Strict core Release build and bootstrap smoke passed.
-- Native AOT deterministic serialization passed.
-- Native AOT dirty tracking, preview, Revert All, Ready planning, and ContentChanged blocking passed.
-- Full win-x64 Native AOT plugin publish passed.
 - Accepted public squash merge: `5184de060c775d2df6db63fa9b42a9be3cf212c1`.
 
 ## [0.5.0-alpha] — 2026-07-22
 
 ### Added
 
-- Host-independent `CsvTableViewBuilder` for immutable search, filtering, and stable view sorting.
-- Case-insensitive search across every visible column.
-- Optional search scope limited to one selected column.
-- 250 ms search debounce in the WinForms panel.
-- Three-state programmatic column sorting: ascending, descending, and original source order.
-- Dedicated Table and Diagnostics tabs.
-- Detailed diagnostics grid with severity, code, logical-record number, character offset, and message.
-- Combined delimiter-detection and parser diagnostics.
-- Clear action for the current search and view sort.
-- xUnit and Native AOT coverage for search, filtering, stable sorting, ToolStrip, Timer, TabControl, and diagnostics DataGridView.
-
-### Safety
-
-- Search, filtering, and sorting remain entirely view-only.
-- Stable sorting preserves original source order for equal values.
-- Source logical-record numbers remain attached to filtered and sorted rows.
-- No Scintilla write, disk write, edit, or write-back path was added.
+- Search, filtering, stable three-state sorting, Table/Diagnostics tabs, and structured diagnostics.
 
 ### Validated
 
-- 81/81 xUnit tests passed.
-- Complete Notepad++ 8.9.7 x64 owner acceptance passed.
+- 81/81 xUnit tests and complete Notepad++ host acceptance passed.
 - Accepted public squash merge: `9aa11992142297c7c40c021d71c3565a71977217`.
 
 ## [0.4.0-alpha] — 2026-07-22
 
 ### Added
 
-- Read-only visual CSV table backed by immutable parser output.
-- Automatic/manual delimiter and explicit header controls.
-- Host-independent rectangular projection with special-header handling.
-- Source logical-record numbers in DataGridView row headers.
-- Explicit row, column, and aggregate-cell limits.
-- Native AOT DataGridView runtime smoke.
-- DPI-aware initial dock-width policy.
-- Content-aware full-width column sizing.
-- Developer and contact information in About.
-
-### Fixed
-
-- Preserved the WinForms row-header constructor required under Native AOT.
-- Corrected the unusably narrow first-open dock layout.
-- Removed unused right-side grid workspace.
+- Read-only visual CSV table, delimiter/header controls, source row numbers, limits, Native AOT grid runtime, DPI-aware layout, and About details.
 
 ### Validated
 
-- 69/69 xUnit tests passed.
-- Complete Notepad++ 8.9.7 x64 owner acceptance passed.
+- 69/69 xUnit tests and complete Notepad++ host acceptance passed.
 - Accepted public squash merge: `d17dd7f46f600fac2896f21239d7833dd00dd727`.
 
 ## [0.3.0-alpha] — 2026-07-21

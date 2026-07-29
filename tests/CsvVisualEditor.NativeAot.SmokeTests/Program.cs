@@ -1,5 +1,6 @@
 namespace CsvVisualEditor.NativeAot.SmokeTests;
 
+using CsvVisualEditor;
 using CsvVisualEditor.Core;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -73,7 +74,12 @@ internal static class Program
         Bind(grid, result.Projection.Rows, result.Projection);
         grid.PerformLayout();
 
-        Require(grid.Columns.Count == 3, $"{caseName}: expected 3 columns.");
+        Require(grid.Columns.Count == 4, $"{caseName}: expected 3 CSV columns plus the row indicator.");
+        var dataColumns = grid.Columns
+            .Cast<DataGridViewColumn>()
+            .Where(static column => !CsvGridRowHeaderBehavior.IsPresentationColumn(column))
+            .ToArray();
+        Require(dataColumns.Length == 3, $"{caseName}: expected exactly 3 physical CSV columns.");
         Require(grid.Rows.Count == 3, $"{caseName}: expected 3 data rows.");
         Require(
             string.Equals(
@@ -89,13 +95,12 @@ internal static class Program
             $"{caseName}: second cell mismatch.");
         Require(grid.ReadOnly, $"{caseName}: grid must remain read-only.");
         Require(
-            grid.Columns.Cast<DataGridViewColumn>().All(
+            dataColumns.All(
                 static column => column.AutoSizeMode == DataGridViewAutoSizeColumnMode.Fill),
-            $"{caseName}: every table column must use Fill sizing.");
+            $"{caseName}: every CSV data column must use Fill sizing.");
         Require(
-            grid.Columns.Cast<DataGridViewColumn>().All(
-                static column => column.MinimumWidth == 90),
-            $"{caseName}: every table column must retain the readable minimum width.");
+            dataColumns.All(static column => column.MinimumWidth == 90),
+            $"{caseName}: every CSV data column must retain the readable minimum width.");
         Require(
             grid.Columns[0].FillWeight > grid.Columns[2].FillWeight,
             $"{caseName}: the longer e-mail column should receive more relative width than Password.");
@@ -254,14 +259,18 @@ internal static class Program
         Require(
             filteredGrid.Rows.Count == 2,
             $"{caseName}: filtered grid should contain two rows.");
+        var rowIndicatorColumn =
+            filteredGrid.Columns[CsvGridRowPresentation.RowIndicatorColumnName] ??
+            throw new InvalidOperationException("Row-indicator column was not configured.");
         Require(
+            filteredGrid.Rows[0].HeaderCell.Value is null &&
             string.Equals(
                 Convert.ToString(
-                    filteredGrid.Rows[0].HeaderCell.Value,
+                    filteredGrid.Rows[0].Cells[rowIndicatorColumn.Index].Value,
                     CultureInfo.InvariantCulture),
                 "2",
                 StringComparison.Ordinal),
-            $"{caseName}: filtered row must retain source logical-record number.");
+            $"{caseName}: filtered row must retain its logical-record number outside the native glyph cell.");
     }
 
     private static void RunViewControlsCase(string caseName)
@@ -386,6 +395,8 @@ internal static class Program
                 });
         }
 
+        CsvGridRowHeaderBehavior.SynchronizeTablePresentation(grid);
+
         foreach (var row in rows)
         {
             var values = new object[row.Values.Count];
@@ -395,9 +406,14 @@ internal static class Program
             }
 
             var rowIndex = grid.Rows.Add(values);
-            grid.Rows[rowIndex].HeaderCell.Value =
-                (row.SourceRecordIndex + 1).ToString(CultureInfo.InvariantCulture);
+            var logicalRecordNumber = row.SourceRecordIndex + 1;
+            CsvGridRowPresentation.SetRowIndicator(
+                grid.Rows[rowIndex],
+                logicalRecordNumber.ToString(CultureInfo.InvariantCulture),
+                $"Source logical record {logicalRecordNumber.ToString(CultureInfo.CurrentCulture)}");
         }
+
+        CsvGridRowHeaderBehavior.RefreshPresentationLayout(grid);
     }
 
     private static void WriteDiagnostic(string message)
