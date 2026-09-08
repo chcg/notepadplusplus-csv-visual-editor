@@ -6,7 +6,7 @@ using Npp.DotNet.Plugin.Winforms;
 using Npp.DotNet.Plugin.Winforms.Classes;
 using System.Globalization;
 
-internal sealed class CsvGridForm : DockingForm
+internal sealed partial class CsvGridForm : DockingForm
 {
     private const string FormTitle = "CSV Visual Editor";
     private const int DelimiterAutoIndex = 0;
@@ -31,9 +31,21 @@ internal sealed class CsvGridForm : DockingForm
     private readonly ToolStripButton _applyButton;
     private readonly ToolStripButton _revertAllButton;
     private readonly ToolStripLabel _dirtyLabel;
-    private readonly ToolStripTextBox _searchBox;
-    private readonly ToolStripComboBox _searchColumnCombo;
+    private readonly TextBox _searchBox;
+    private readonly ComboBox _searchColumnCombo;
     private readonly ToolStripButton _clearSearchButton;
+    private readonly CsvSearchBar _searchBar = new();
+    private CsvCellSearchIndex? _searchResults;
+    private readonly Label _noMatchesLabel = new()
+    {
+        Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Visible = false,
+        Text = "No matching rows.\nTry another search text or column.", UseMnemonic = false
+    };
+    private readonly Label _diagnosticsEmpty = new()
+    {
+        Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+        Text = "No diagnostics to display.", UseMnemonic = false
+    };
     private readonly ToolStripButton _diagnosticsButton;
     private readonly TableLayoutPanel _topPanel;
     private readonly TabControl _tabControl;
@@ -155,23 +167,14 @@ internal sealed class CsvGridForm : DockingForm
         _toolStrip.Items.Add(_revertAllButton);
         _toolStrip.Items.Add(_dirtyLabel);
 
-        _searchBox = new ToolStripTextBox
-        {
-            AutoSize = false,
-            Enabled = false,
-            ToolTipText = "Filter visible rows without changing the source CSV",
-            Width = 180
-        };
+        _searchBox = _searchBar.Query;
+        _searchBox.Enabled = false;
         _searchBox.TextChanged += OnSearchTextChanged;
+        _searchColumnCombo = _searchBar.Column;
+        _searchColumnCombo.Enabled = false;
+        _searchBar.NavigateRequested += NavigateSearch;
+        _searchBar.ClearRequested += ClearSearch;
 
-        _searchColumnCombo = new ToolStripComboBox
-        {
-            AutoSize = false,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Enabled = false,
-            ToolTipText = "Search all columns or only one selected column",
-            Width = 160
-        };
         _searchColumnCombo.Items.Add("All columns");
         _searchColumnCombo.SelectedIndex = 0;
         _searchColumnCombo.SelectedIndexChanged += OnSearchColumnChanged;
@@ -191,10 +194,6 @@ internal sealed class CsvGridForm : DockingForm
             Dock = DockStyle.Fill,
             GripStyle = ToolStripGripStyle.Hidden
         };
-        _viewToolStrip.Items.Add(new ToolStripLabel("Search:"));
-        _viewToolStrip.Items.Add(_searchBox);
-        _viewToolStrip.Items.Add(new ToolStripLabel("In:"));
-        _viewToolStrip.Items.Add(_searchColumnCombo);
         _viewToolStrip.Items.Add(_clearSearchButton);
         _viewToolStrip.Items.Add(new ToolStripSeparator());
         _viewToolStrip.Items.Add(_diagnosticsButton);
@@ -214,8 +213,12 @@ internal sealed class CsvGridForm : DockingForm
         _topPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         _topPanel.Controls.Add(_toolStrip, 0, 0);
         _topPanel.Controls.Add(_viewToolStrip, 0, 1);
+        _topPanel.RowCount = 3;
+        _topPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _topPanel.Controls.Add(_searchBar, 0, 2);
 
         _grid = CreateReadOnlyGrid(showRowHeaders: true);
+        _searchBar.ReturnToGridRequested += () => _grid.Focus();
         _grid.ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText;
         _grid.ColumnHeaderMouseClick += OnTableColumnHeaderMouseClick;
         _grid.CellValueChanged += OnGridCellValueChanged;
@@ -223,8 +226,10 @@ internal sealed class CsvGridForm : DockingForm
         _grid.CellToolTipTextNeeded += OnGridCellToolTipTextNeeded;
         _grid.EditingControlShowing += OnGridEditingControlShowing;
         _grid.SelectionChanged += (_, _) => UpdateControlAvailability();
+        _grid.CurrentCellChanged += (_, _) => UpdateSearchSummary();
         if (_grid is CsvDataGridView csvGrid)
         {
+            csvGrid.SearchCommandHandler = TryHandleSearchKey;
             csvGrid.ClipboardCommandHandler = keyData =>
                 CsvGridClipboardController.TryHandleGridCommand(csvGrid, this, keyData);
         }
@@ -239,12 +244,14 @@ internal sealed class CsvGridForm : DockingForm
             Padding = Padding.Empty
         };
         _tablePage.Controls.Add(_grid);
+        _tablePage.Controls.Add(_noMatchesLabel);
 
         _diagnosticsPage = new TabPage("Diagnostics (0)")
         {
             Padding = Padding.Empty
         };
         _diagnosticsPage.Controls.Add(_diagnosticsGrid);
+        _diagnosticsPage.Controls.Add(_diagnosticsEmpty);
 
         _tabControl = new TabControl
         {
@@ -257,14 +264,17 @@ internal sealed class CsvGridForm : DockingForm
         _statusLabel = new ToolStripStatusLabel
         {
             Spring = true,
-            TextAlign = ContentAlignment.MiddleLeft
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoToolTip = true
         };
         _statusStrip = new StatusStrip
         {
             Dock = DockStyle.Bottom,
-            SizingGrip = false
+            SizingGrip = false,
+            ShowItemToolTips = true
         };
         _statusStrip.Items.Add(_statusLabel);
+        _statusLabel.TextChanged += (_, _) => _statusLabel.ToolTipText = _statusLabel.Text;
 
         _searchTimer = new System.Windows.Forms.Timer
         {
@@ -274,11 +284,13 @@ internal sealed class CsvGridForm : DockingForm
 
         SuspendLayout();
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(980, 560);
+        ClientSize = new Size(740, 560);
         Controls.Add(_tabControl);
         Controls.Add(_statusStrip);
         Controls.Add(_topPanel);
-        MinimumSize = new Size(620, 340);
+        // The dock must be allowed to shrink; a 620px form minimum defeated
+        // the search bar's narrow layout and displaced the source editor.
+        MinimumSize = new Size(260, 240);
         Text = FormTitle;
         ResumeLayout(performLayout: true);
 
@@ -524,6 +536,7 @@ internal sealed class CsvGridForm : DockingForm
         }
 
         CsvGridRowHeaderBehavior.RefreshPresentationLayout(_grid);
+        RefreshCommandAppearance();
         Invalidate(invalidateChildren: true);
     }
 
@@ -537,6 +550,8 @@ internal sealed class CsvGridForm : DockingForm
     {
         if (disposing)
         {
+            _commandSurface?.Dispose();
+            _commandSurface = null;
             _editingControlPasteHook.Dispose();
             _searchTimer.Stop();
             _searchTimer.Dispose();
@@ -684,7 +699,8 @@ internal sealed class CsvGridForm : DockingForm
         }
 
         _clearSearchButton.Enabled =
-            _searchBox.Text.Length > 0 || _sortColumnIndex is not null;
+            _searchBox.Text.Length > 0 || _sortColumnIndex is not null || _searchColumnCombo.SelectedIndex > 0;
+        _searchBar.SetResults(-1, 0, _searchBox.TextLength > 0, pending: true);
         _searchTimer.Stop();
         _searchTimer.Start();
     }
@@ -1079,6 +1095,9 @@ internal sealed class CsvGridForm : DockingForm
 
     private void ApplyCurrentView()
     {
+        _searchTimer.Stop();
+        _searchResults = null;
+        if (_grid is CsvDataGridView clearGrid) clearGrid.SetSearchResults(null);
         if (_projection is null || _snapshot is null || _parseResult is null)
         {
             return;
@@ -1087,6 +1106,7 @@ internal sealed class CsvGridForm : DockingForm
         if (_editMode && _rowEditModel is not null)
         {
             RenderStructuralRows(_rowEditModel.GetVisibleRows());
+            UpdateSearchSummary();
             UpdateDirtyIndicators();
             return;
         }
@@ -1105,6 +1125,25 @@ internal sealed class CsvGridForm : DockingForm
             });
         _lastViewResult = view;
         RenderViewRows(view.Rows);
+        _searchResults = CsvCellSearchIndex.Create(view);
+        if (_grid is CsvDataGridView searchGrid) searchGrid.SetSearchResults(_searchResults);
+        if (_searchResults.Count > 0) SelectSearchResult(0);
+        else if (_grid.RowCount > 0 && (_grid.CurrentCell?.OwningColumn is not { } currentColumn ||
+                 CsvGridRowHeaderBehavior.IsPresentationColumn(currentColumn)))
+        {
+            // DisplayIndex 0 is the # lane, not a CSV data cell. Keep initial
+            // keyboard focus/selection on data, without changing row gestures.
+            var first = _grid.Columns.Cast<DataGridViewColumn>()
+                .FirstOrDefault(column => !CsvGridRowHeaderBehavior.IsPresentationColumn(column));
+            if (first is not null)
+            {
+                _grid.ClearSelection();
+                var firstCell = _grid.Rows[0].Cells[first.Index];
+                _grid.CurrentCell = firstCell;
+                firstCell.Selected = true;
+            }
+        }
+        UpdateSearchSummary();
         UpdateSortGlyphs();
         UpdateDirtyIndicators();
     }
@@ -1400,7 +1439,8 @@ internal sealed class CsvGridForm : DockingForm
         _clearSearchButton.Enabled = hasTable &&
                                      !_editMode &&
                                      (_searchBox.Text.Length > 0 ||
-                                      _sortColumnIndex is not null);
+                                      _sortColumnIndex is not null ||
+                                      _searchColumnCombo.SelectedIndex > 0);
         _editButton.Enabled = canEdit;
         _editButton.Text = _editMode ? "Exit Edit" : "Edit";
         _editButton.Checked = _editMode;
@@ -1498,11 +1538,14 @@ internal sealed class CsvGridForm : DockingForm
               $"-{FormatNumber(_rowEditModel.DeletedRowCount)}"
             : string.Empty;
 
-        _statusLabel.Text =
+        var detailedStatus =
             $"{_snapshot.DisplayName} — {rowDescription} × " +
             $"{FormatNumber(_projection.ColumnCount)} columns — " +
             $"{_parseResult.Dialect.DelimiterDisplayName}, {delimiterSource} — " +
             $"{headerDescription} — {diagnosticDescription}{sortDescription}{editDescription}.";
+        _statusLabel.Text = $"{_snapshot.DisplayName} - {rowDescription} x {_projection.ColumnCount:N0} columns" +
+            (_editMode ? " - Edit mode" : $" - {diagnosticDescription}");
+        _statusLabel.ToolTipText = detailedStatus;
     }
 
     private void PopulateDiagnostics(IEnumerable<CsvDiagnostic> diagnostics)
@@ -1527,6 +1570,8 @@ internal sealed class CsvGridForm : DockingForm
         _diagnosticsPage.Text = label;
         _diagnosticsButton.Text = label;
         _diagnosticsGrid.ClearSelection();
+        _diagnosticsEmpty.Visible = copiedDiagnostics.Length == 0;
+        if (_diagnosticsEmpty.Visible) _diagnosticsEmpty.BringToFront();
     }
 
     private void ConfigureDiagnosticsGrid()
@@ -1613,6 +1658,10 @@ internal sealed class CsvGridForm : DockingForm
     private void ResetVisualTableContext()
     {
         _searchTimer.Stop();
+        _searchResults = null;
+        if (_grid is CsvDataGridView searchGrid) searchGrid.SetSearchResults(null);
+        _noMatchesLabel.Visible = false;
+        _searchBar.SetResults(-1, 0, false);
         ResetEditState(clearSession: true);
         _snapshot = null;
         _parseResult = null;

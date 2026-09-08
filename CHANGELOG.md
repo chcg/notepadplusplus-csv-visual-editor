@@ -4,6 +4,80 @@ All notable changes to CSV Visual Editor will be documented in this file.
 
 ## [Unreleased]
 
+### 0.12.6 visual regression repair
+
+- Restore standard UI typography and vertical cell borders; remove the forced value font.
+- Render legible 3-DIP orange space dots, with higher contrast and separate display-only whitespace slots. Original CSV, clipboard and edit values remain unchanged. Native in-cell editing remains standard.
+- Repair the interrupted search-field border, keep scope/count/navigation grouped, cap query width and remove redundant idle text/clear icon. Narrow layouts no longer inherit a 620px form minimum.
+- Keep initial table focus on a data cell rather than the presentation-only record-number lane. Avoid redundant invalidations while a cleared search index is already null.
+- Add full production-DLL load/render/search review in an isolated, checksum-pinned portable Notepad++ 8.9.8, with captured panel images. This does not replace user acceptance, multi-monitor/DPI or Apply/Undo tests.
+
+
+### Additional 0.12.5 audit corrections
+
+- Use monospaced value cells in the table and Transform for clearly separated solid space dots; keep normal UI header fonts and raw values.
+- Improve narrow search scope width and dark About styling; share the new About dialog with the existing Notepad++ Plugins menu.
+- Restore the explicitly accepted Windows-1250 host Apply policy while preserving strict full-buffer lossless preflight, conflict checks and one undo. Do not authorize additional code pages.
+- Retire prior background builds before a fresh snapshot read, including failed-read paths, so old results cannot replace a newer error state.
+- Add actual-grid light/dark pixel tests and production-host-policy Native AOT regressions. Real Notepad++ host validation remains pending.
+
+### 0.12.5 GUI refinement and search navigation
+
+- Replace narrow-font space rings with filled, pixel-aligned dots. Guarantee a gap by choosing one diameter per font/DPI rather than varying individual glyph shapes. Test actual consecutive runs, not just isolated markers.
+- Replace the cascading search textbox with one responsive search bar, cell counts, previous/next navigation, direct menu focus and keyboard access. Preserve row-filter semantics and separate clearing text from resetting all view options.
+- Index matching visible cells once; do not cache potentially stale values by row number. Install results after row rebuilding and invalidate on mutations. Preserve clipping, native edit/selection, clipboard and Apply.
+- Add About with build information, developer Zolnai Zsolt, approved contact zzsolt@gmail.com and a support invitation. Links open only on an explicit click; no donation service is invented.
+- Soften grid separators, reduce status-line clutter with complete hover details, add useful no-results/diagnostics empty states and enable buffered grid painting.
+- Fix repeated command-surface tooltip prefixes, menu handling of literal ampersands, and invalid sort-enum values being treated as descending.
+- Add Core and Native AOT regression coverage, responsive-layout screenshots and repeat-install/disposal checks. New host validation remains pending.
+
+### 0.12.4 search and whitespace refinement
+
+- Frame matching CSV cells in gold using the same effective query, column scope and ordinal-ignore-case semantics as the row filter. Keep native selection and raw values; clear cached matches on each render, sort, query change and Edit transition.
+- Bound the visible-cell match cache to 4,096 entries; do not retain cell values or allocate per-cell styles.
+- Use fixed DPI-dependent, pixel-snapped space-ring geometry independent of measured glyph widths. Reuse the pen and graphics state across each paint pass.
+- Give search its own toolbar row so delimiter/header controls no longer displace the input; retain the complete Search menu.
+- Owner reported missing cell search indication and inconsistent ring appearance in 0.12.3, with everything else good. New correction requires host retest; screenshots and source values were not committed.
+- Base version 0.12.4-alpha with unique run/attempt package names; additional Native AOT pixel and search-state regressions.
+
+### 0.12.3 icon toolbar and complete menu
+
+- Compact original outline icons with command-name tooltips and accessible names; permanent Table/Edit/View/CSV/Search dropdown menus share the existing command handlers and enabled/checked state.
+- Reach delimiter, header, search text/column, sort, table and diagnostics from menus, including when toolbar controls overflow.
+- Theme-aware menus, DPI-scaled icons and themed Transform dialog follow the plugin's current Notepad++ light/dark colors.
+- Refine space marks to small hollow orange dots; View > Show spaces toggles presentation in the table and subsequent Transform dialogs. Cell tooltips count real spaces, leading/trailing spaces and length.
+- Base version 0.12.3-alpha; unique build/run-attempt ZIP names remain enabled.
+- Owner reported the preceding 0.12.2 whitespace host checklist successful on 2026-09-07; host version and installed DLL hash were not supplied. This report does not establish a result for the new GUI or previously unreported Source cases.
+- GUI host validation is pending: see `docs/host-validation-0.12-gui-hu.md`.
+
+### 0.12.2 orange whitespace dots
+
+- Paint small orange space dots in the primary CSV table and Transform previews, including virtual rows and selected cells.
+- Preserve actual cell/clipboard/edit/source values; leave native in-cell editing and presentation columns alone.
+- Add Native AOT bitmap/virtual-grid checks and a targeted Hungarian host checklist.
+- Advance the base version to 0.12.2-alpha; retain unique CI run/attempt package names.
+
+
+### 0.12.1 preview and package correction
+
+- Make preview whitespace visible with space markers, escaped controls/Unicode whitespace, explicit boundaries and complete UTF-16 lengths. Real values remain unchanged.
+- Distinguish literal marker characters and avoid splitting surrogate pairs in shortened samples.
+- Give every CI package a unique `0.12.1-alpha.<run>.<attempt>` version/name, including reruns. Record ZIP/DLL checksums in candidate logs.
+- Add seven Native AOT formatting checks; real-host readability acceptance remains pending.
+
+### Added
+
+- Edit-mode **Transform** command with literal replacement, outer-whitespace trimming and invariant uppercase/lowercase operations.
+- Selected cells/complete rows, current physical CSV column, or all data cells as explicit scopes.
+- Immutable before/after preview, exact affected-cell/row counts, bounded on-screen samples and explicit acceptance into pending edits.
+- Full prevalidation of previewed values (including unchanged targets), stable row identities, wrong-session rejection and bounded replacement growth before mutation.
+- Core regression and Native AOT transform/dialog coverage; step-by-step synthetic host checks in `docs/bulk-transforms-0.12.md`.
+
+### Validation boundary
+
+- Owner reported the previously supplied read-only stale Source F1/recovery test successful on 2026-09-06. Exact host version and installed DLL hash were not supplied with this report.
+- The detailed historical Transform/Source evidence is retained in the host documents; Source F2–F4 and exact Windows-1250 Source offsets are not established by the latest whitespace checklist report. This development phase does not close milestone 0.12.
+
 ## [0.9.0-alpha] — 2026-07-29
 
 ### Fixed

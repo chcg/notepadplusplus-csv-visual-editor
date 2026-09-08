@@ -29,5 +29,12 @@
     <Compile Include="../../src/CsvVisualEditor/CsvGridRowPresentation.cs" Link="CsvGridRowPresentation.cs" />
     <Compile Include="../../src/CsvVisualEditor/CsvGridRowHeaderBehavior.cs" Link="CsvGridRowHeaderBehavior.cs" />
     <Compile Include="../../src/CsvVisualEditor/CsvGridSelectionSnapshot.cs" Link="CsvGridSelectionSnapshot.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvTransformDialog.cs" Link="CsvTransformDialog.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvWhitespaceCellPainter.cs" Link="CsvWhitespaceCellPainter.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvCommandIcons.cs" Link="CsvCommandIcons.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvCommandSurface.cs" Link="CsvCommandSurface.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvSearchBar.cs" Link="CsvSearchBar.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvAboutDialog.cs" Link="CsvAboutDialog.cs" />
+    <Compile Include="../../src/CsvVisualEditor/CsvHostApplyCoordinator.cs" Link="CsvHostApplyCoordinator.cs" />
   </ItemGroup>
 </Project>
