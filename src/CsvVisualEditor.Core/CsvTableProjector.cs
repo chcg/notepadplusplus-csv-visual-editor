@@ -27,21 +27,25 @@ public static class CsvTableProjector
 
         if (columnCount > options.MaximumColumns)
         {
-            throw new InvalidOperationException(
+            throw CsvErrorDetails.With(new InvalidOperationException(
                 $"The parsed document contains {columnCount:N0} columns, which exceeds the " +
-                $"current visual-table limit of {options.MaximumColumns:N0}. No columns were hidden.");
+                $"current visual-table limit of {options.MaximumColumns:N0}. No columns were hidden."),
+                CsvUserError.ProjectionTooManyColumns, columnCount, options.MaximumColumns);
         }
 
         if (columnCount > options.MaximumCells)
         {
-            throw new InvalidOperationException(
+            throw CsvErrorDetails.With(new InvalidOperationException(
                 $"One visual row would require {columnCount:N0} cells, which exceeds the current " +
-                $"aggregate cell limit of {options.MaximumCells:N0}. No columns were hidden.");
+                $"aggregate cell limit of {options.MaximumCells:N0}. No columns were hidden."),
+                CsvUserError.ProjectionTooManyCells, columnCount, options.MaximumCells);
         }
 
         var columnNames = CreateColumnNames(headerRecord, columnCount);
         var columns = columnNames
-            .Select(static (name, index) => new CsvTableColumn(index, name))
+            .Select((name, index) => new CsvTableColumn(index, name,
+                headerRecord is null || index >= headerRecord.Cells.Count ||
+                string.IsNullOrWhiteSpace(headerRecord.Cells[index].Value)))
             .ToArray();
 
         var rowsAllowedByCellBudget = columnCount == 0
