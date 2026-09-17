@@ -20,6 +20,9 @@ internal sealed class CsvDataGridView : DataGridView
     }
 
     private const int WmKeyDown = 0x0100;
+    private const int WmKeyUp = 0x0101;
+    private const int WmChar = 0x0102;
+    private const int WmSysKeyDown = 0x0104;
     private const int WmCut = 0x0300;
     private const int WmCopy = 0x0301;
     private const int WmPaste = 0x0302;
@@ -132,6 +135,27 @@ internal sealed class CsvDataGridView : DataGridView
         return grid is CsvDataGridView && grid.RowHeadersVisible;
     }
 
+    protected override bool ProcessKeyPreview(ref Message message)
+    {
+        // A native modeless host need not run WinForms key preprocessing before
+        // delivering WM_CHAR. DataGridView otherwise consumes Space here using
+        // its cached CurrentCellWantsInputKey flag. Leave ordinary Space to the
+        // active text editor, which performs the insertion exactly once.
+        if (IsCurrentCellInEditMode &&
+            EditingControl is TextBoxBase { IsHandleCreated: true, ReadOnly: false } editor &&
+            message.HWnd == editor.Handle &&
+            message.Msg is WmKeyDown or WmKeyUp or WmChar &&
+            message.WParam.ToInt64() == (int)Keys.Space &&
+            (ModifierKeys & (Keys.Control | Keys.Alt)) == Keys.None)
+        {
+            return false;
+        }
+
+        // Cell selection, checkboxes, navigation and modified commands retain
+        // their usual grid behavior when no editable text control owns the key.
+        return base.ProcessKeyPreview(ref message);
+    }
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (SearchCommandHandler?.Invoke(keyData) == true) return true;
@@ -146,7 +170,7 @@ internal sealed class CsvDataGridView : DataGridView
 
     protected override void WndProc(ref Message message)
     {
-        if (message.Msg == WmKeyDown &&
+        if ((message.Msg is WmKeyDown or WmSysKeyDown) &&
             SearchCommandHandler?.Invoke((Keys)message.WParam.ToInt32() | ModifierKeys) == true) return;
         if (TryResolveNativeClipboardCommand(
                 message.Msg,
