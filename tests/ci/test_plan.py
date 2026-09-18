@@ -16,7 +16,8 @@ class PlanTests(unittest.TestCase):
 
     def test_source_updates_are_cheap(self):
         for path in ('src/CsvVisualEditor/Main.cs', 'src/CsvVisualEditor.Localization/Catalogs/hu.json',
-                     'tests/localization/test_catalog_gate.py', 'tools/ci/plan.py',
+                     'tests/localization/test_catalog_gate.py', 'tests/release/test_release_package.py', 'tools/ci/plan.py',
+                     'packaging/nppPluginList/entry.template.json', 'LICENSE', 'THIRD_PARTY_NOTICES.txt',
                      '.github/workflows/ci.yml', 'Directory.Build.props', 'global.json'):
             self.assertEqual({'validate': True, 'full': False}, plan.classify([path], 'pull_request', 'Update'))
 
@@ -82,17 +83,20 @@ class PlanTests(unittest.TestCase):
 
     def test_local_candidate_has_every_gate_before_packaging(self):
         text = (ROOT / 'tools/build-local.ps1').read_text()
-        required = ('tools/localization/verify.py', 'Test-TestPackagePolicy.ps1',
+        required = ('tests/release', 'tools/localization/verify.py', 'Test-TestPackagePolicy.ps1',
                     'tests/CsvVisualEditor.Core.SmokeTests', 'tests/CsvVisualEditor.Core.Tests',
                     'tests/CsvVisualEditor.NativeAot.SmokeTests/CsvVisualEditor.NativeAot.SmokeTests.csproj',
                     'Invoke-Smoke.ps1', 'src/CsvVisualEditor/CsvVisualEditor.csproj',
-                    'Invoke-HostReview.ps1', 'Invoke-LocalizedHostReview.ps1', 'Compress-Archive')
+                    'Invoke-HostReview.ps1', 'Invoke-LocalizedHostReview.ps1',
+                    'LICENSE.txt', 'THIRD_PARTY_NOTICES.txt', 'Compress-Archive', 'npp_plugin_package.py')
         positions = [text.index(value) for value in required]
         self.assertEqual(sorted(positions), positions)
         self.assertNotIn('--english-only', text)
         self.assertIn('if ($LASTEXITCODE -ne 0) { throw', text)
         self.assertIn('Push-Location $destination', text)
         self.assertIn("'-OutputPath', (Join-Path $destination 'host-review')", text)
+        self.assertIn("Join-Path $layout 'CsvVisualEditor.dll'", text)
+        self.assertNotIn("package/CsvVisualEditor'", text)
 
     def test_no_hosted_translation_or_transfer_workflows_remain(self):
         self.assertEqual(['ci.yml'], sorted(p.name for p in (ROOT / '.github/workflows').glob('*.yml')))
