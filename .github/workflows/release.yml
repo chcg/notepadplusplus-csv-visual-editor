@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve and validate release version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+              throw "Release tags must be stable semantic versions such as v1.0.2. Got: $tag"
+          }
+          $version = $Matches.version
+
+          $projectText = Get-Content 'src/CsvVisualEditor/CsvVisualEditor.csproj' -Raw
+          $projectVersion = [regex]::Match($projectText, '<Version>(?<version>[^<]+)</Version>').Groups['version'].Value
+          if (-not $projectVersion) {
+              throw 'Could not read <Version> from CsvVisualEditor.csproj.'
+          }
+          if ($projectVersion -ne $version) {
+              throw "Tag version $version does not match project version $projectVersion."
+          }
+
+          $notes = "packaging/release-notes-$version.md"
+          if (-not (Test-Path $notes)) {
+              throw "Missing release notes: $notes"
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Run complete production candidate gate
+        id: candidate
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/build-local.ps1 -PackageVersion "${{ steps.version.outputs.version }}"
+
+      - name: Build exact release body
+        if: success()
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $candidate = "artifacts/local/$version"
+          $notes = Get-Content "packaging/release-notes-$version.md" -Raw
+          $manifest = Get-Content "$candidate/release-manifest.json" -Raw | ConvertFrom-Json
+          $body = @"
+          $notes
+
+          Validated release package:
+
+          - ``$($manifest.zip)``
+          - ZIP SHA-256: ``$($manifest.zipSha256)``
+          - DLL SHA-256: ``$($manifest.dllSha256)``
+          "@
+          Set-Content -Path "$candidate/release-body.md" -Value $body -Encoding utf8
+
+      - name: Upload release diagnostics
+        if: always() && steps.candidate.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CsvVisualEditor-release-diagnostics-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/local/${{ steps.version.outputs.version }}/*.log
+            artifacts/local/${{ steps.version.outputs.version }}/SHA256.txt
+            artifacts/local/${{ steps.version.outputs.version }}/release-manifest.json
+            artifacts/local/${{ steps.version.outputs.version }}/nppPluginList-entry.x64.json
+            artifacts/local/${{ steps.version.outputs.version }}/artifacts/ui-review/
+            artifacts/local/${{ steps.version.outputs.version }}/host-review/
+            artifacts/local/${{ steps.version.outputs.version }}/keyboard-input-review/
+            artifacts/local/${{ steps.version.outputs.version }}/context-menu-review/
+            artifacts/local/${{ steps.version.outputs.version }}/localized-host-review/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stage exact release input
+        if: success()
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          New-Item -ItemType Directory -Path release-input -Force | Out-Null
+          Copy-Item "artifacts/local/$version/CsvVisualEditor-$version-win-x64.zip" release-input/
+          Copy-Item "artifacts/local/$version/release-body.md" release-input/
+
+      - name: Upload exact release input
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CsvVisualEditor-release-input-${{ steps.version.outputs.version }}
+          path: release-input/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download exact release input
+        uses: actions/download-artifact@v4
+        with:
+          name: CsvVisualEditor-release-input-${{ needs.build.outputs.version }}
+          path: release-input
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          name: CSV Visual Editor ${{ needs.build.outputs.version }}
+          body_path: release-input/release-body.md
+          files: release-input/CsvVisualEditor-${{ needs.build.outputs.version }}-win-x64.zip
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          make_latest: true
