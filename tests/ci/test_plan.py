@@ -98,8 +98,23 @@ class PlanTests(unittest.TestCase):
         self.assertIn("Join-Path $layout 'CsvVisualEditor.dll'", text)
         self.assertNotIn("package/CsvVisualEditor'", text)
 
-    def test_no_hosted_translation_or_transfer_workflows_remain(self):
-        self.assertEqual(['ci.yml'], sorted(p.name for p in (ROOT / '.github/workflows').glob('*.yml')))
+    def test_only_approved_hosted_workflows_remain(self):
+        self.assertEqual(
+            ['ci.yml', 'release.yml'],
+            sorted(p.name for p in (ROOT / '.github/workflows').glob('*.yml')),
+        )
+
+    def test_release_workflow_is_tag_only_and_uses_full_gate(self):
+        text = (ROOT / '.github/workflows/release.yml').read_text()
+        self.assertIn('tags:', text)
+        self.assertIn('"v*.*.*"', text)
+        self.assertNotIn('branches:', text)
+        self.assertIn('contents: read', text)
+        self.assertIn('contents: write', text)
+        self.assertIn('tools/build-local.ps1', text)
+        self.assertIn('softprops/action-gh-release@v3.0.3', text)
+        self.assertIn('overwrite_files: false', text)
+        self.assertIn('fail_on_unmatched_files: true', text)
 
 
 if __name__ == '__main__':
